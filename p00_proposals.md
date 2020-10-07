@@ -12,6 +12,7 @@
 
 Предложения:
 * Библиотечка для изучения [логики высказываний](https://ru.wikipedia.org/wiki/%D0%9B%D0%BE%D0%B3%D0%B8%D0%BA%D0%B0_%D0%B2%D1%8B%D1%81%D0%BA%D0%B0%D0%B7%D1%8B%D0%B2%D0%B0%D0%BD%D0%B8%D0%B9) с иллюстрацией доказательства непротиворечивости и полноты этой логики.
+* Программа для визуализации [геометрии Лобачевского](https://ru.wikipedia.org/wiki/%D0%93%D0%B5%D0%BE%D0%BC%D0%B5%D1%82%D1%80%D0%B8%D1%8F_%D0%9B%D0%BE%D0%B1%D0%B0%D1%87%D0%B5%D0%B2%D1%81%D0%BA%D0%BE%D0%B3%D0%BE). Есть [формулы](https://mccme.ru/free-books/prasolov/glob.pdf) для применения координатного метода. Поэтому можно рассмотреть разные модели геометрии и подвигать их мышкой.
 * Этюды Высоцкого [про среднее число слагаемых](https://mccme.ru/free-books/matpros-24.html) и [про симметризацию игральной кости](https://mccme.ru/free-books/matpros-25.html).
 * [Регулярные графы](https://mccme.ru/free-books/matpros-25.html) Гашкова.
 * [Дерево Калкина-Уилфа](https://en.wikipedia.org/wiki/Calkin%E2%80%93Wilf_tree).

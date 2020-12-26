@@ -5,6 +5,9 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class HypPoint:
+    """
+    Точка на плоскости Лобачевского. Описывается координатами в модели Бельтрами-Клейна.
+    """
     x: float
     y: float
 
@@ -16,34 +19,46 @@ class HypPoint:
 
 
 class HypListItem(QtWidgets.QListWidgetItem):
+    """
+    Элемент для виджета "список", содержащий ссылку на исходный элемент.
+    """
     def __init__(self, item):
         self.raw = item
         super(HypListItem, self).__init__(str(item))
 
 
 class HypArea(QtWidgets.QWidget):
+    """
+    Виджет, изображающий модель Бельтрами-Клейна. Он отрисовывает край диска и геометрические элементы.
+    """
     def __init__(self, parent=None):
         super(HypArea, self).__init__(parent)
         self.setBackgroundRole(QtGui.QPalette.Base)
         self.setAutoFillBackground(True)
+        # центр диска и его радиус в координатах виджета
         self.center = QtCore.QPointF(0, 0)
         self.radius = 1
+        # список объектов для отрисовки
         self.objects = []
 
     def minimumSizeHint(self):
         return QtCore.QSize(300, 300)
 
     def resizeEvent(self, event):
+        # при изменении размеров виджета меняется и диск
         self.center = QtCore.QPointF(self.width() / 2, self.height() / 2)
         self.radius = min(self.width(), self.height()) / 2 * 0.98
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
+        # переходим в систему координат диска
         painter.translate(self.center)
         painter.scale(self.radius, self.radius)
+        # и отрисовываем границу диска
         painter.setPen(QtGui.QPen(QtCore.Qt.black, 0))
         painter.drawEllipse(QtCore.QRectF(-1, -1, 2, 2))
 
+        # отрисовываем объекты, сейчас -- точки
         painter.setBrush(QtCore.Qt.black)
         for obj in self.objects:
             if isinstance(obj, HypPoint):
@@ -55,6 +70,7 @@ class HypArea(QtWidgets.QWidget):
     addPoints = QtCore.Signal(list)
 
     def mouseDoubleClickEvent(self, event):
+        # при двойном клике -- добавляем точку в общий список
         x = (event.x() - self.center.x()) / self.radius
         y = (event.y() - self.center.y()) / self.radius
 
@@ -68,6 +84,9 @@ class HypArea(QtWidgets.QWidget):
 
 
 class HypControls(QtWidgets.QWidget):
+    """
+    Виджет со всеми управляющими элементами. Тут и списки объектов, и кнопки.
+    """
     def __init__(self, parent=None):
         super(HypControls, self).__init__(parent)
         expanding = QtWidgets.QSizePolicy.Expanding
@@ -98,6 +117,10 @@ class HypControls(QtWidgets.QWidget):
 
 
 class HypWindow(QtWidgets.QWidget):
+    """
+    Главное окно программы, здесь выкладываем картинку плоскости и управляющие элементы на окошко.
+    И подключаем их события друг к другу.
+    """
     def __init__(self, parent=None):
         super(HypWindow, self).__init__(parent)
 

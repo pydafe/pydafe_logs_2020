@@ -194,18 +194,24 @@ class HypArea(QtWidgets.QWidget):
         p, q = self.transform(p.toComplex()), self.transform(q.toComplex())
 
         z = (p + q) / 2
-        if self.conformal and abs(z) > 0.01:
-            z = z / abs(z) ** 2
+        if self.conformal:
+            if abs(z) > 0.1:
+                z = z / abs(z) ** 2
 
-            r = (abs(z) ** 2 - 1) ** 0.5
-            if cmath.phase((q - z) / (p - z)) > 0:
-                p, q = q, p
+                r = (abs(z) ** 2 - 1) ** 0.5
+                if cmath.phase((q - z) / (p - z)) > 0:
+                    p, q = q, p
 
-            start = cmath.phase(p - z)
-            span = cmath.phase((q - z) / (p - z))
+                start = cmath.phase(p - z)
+                span = cmath.phase((q - z) / (p - z))
 
-            m = 2880 / cmath.pi
-            painter.drawArc(QtCore.QRectF(z.real - r, z.imag - r, 2 * r, 2 * r), -start * m, -span * m)
+                m = 2880 / cmath.pi
+                painter.drawArc(QtCore.QRectF(z.real - r, z.imag - r, 2 * r, 2 * r), -start * m, -span * m)
+            else:
+                path = QtGui.QPainterPath()
+                path.moveTo(p.real, p.imag)
+                path.quadTo(0, 0, q.real, q.imag)
+                painter.drawPath(path)
         else:
             painter.drawLine(QtCore.QPointF(p.real, p.imag), QtCore.QPointF(q.real, q.imag))
 
@@ -213,18 +219,21 @@ class HypArea(QtWidgets.QWidget):
         redpen = QtGui.QPen(QtCore.Qt.red, 0)
         blackpen = QtGui.QPen(QtCore.Qt.black, 0)
         nopen = QtCore.Qt.NoPen
+        blackbrush = QtGui.QBrush(QtCore.Qt.black)
+        nobrush = QtCore.Qt.NoBrush
 
         painter = self._circle_painter()
         painter.setPen(blackpen)
         painter.drawEllipse(QtCore.QRectF(-1, -1, 2, 2))
 
-        painter.setBrush(QtCore.Qt.black)
         for obj in self.objects:
             if isinstance(obj, HypPoint):
                 painter.setPen(nopen)
+                painter.setBrush(blackbrush)
                 self._drawPoint(painter, obj)
             elif isinstance(obj, HypLine):
                 painter.setPen(blackpen)
+                painter.setBrush(nobrush)
                 self._drawLine(painter, obj)
 
         painter.setPen(QtCore.Qt.NoPen)

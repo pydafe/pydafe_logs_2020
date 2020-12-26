@@ -344,15 +344,24 @@ class HypArea(QtWidgets.QWidget):
     """
     def __init__(self, parent=None):
         super(HypArea, self).__init__(parent)
+        # qt-шные настройки виджета
         self.setBackgroundRole(QtGui.QPalette.Base)
         self.setAutoFillBackground(True)
+        # центр диска в координатах виджета
         self.center = QtCore.QPointF(0, 0)
+        # радиус диска в них же
         self.radius = 1
+        # список объектов для отрисовки
         self.objects = []
+        # список объектов для выделения красным
         self.selected = []
+        # актуальная отрисованная модель
         self.model = HypModel.BeltramiKlein
+        # текущая точка, за которую схватил пользователь для движения плоскостью
+        # задаётся в координатах отрисовки
         self.grabPoint = HypPoint(0)
-        self.transform = HypTransform.identity()  # Преобразование перед отрисовкой, в координатах Пуанкаре
+        # актуальное преобразование плоскости для отрисовки
+        self.transform = HypTransform.identity()
 
     def minimumSizeHint(self):
         return QtCore.QSize(300, 300)
@@ -361,36 +370,39 @@ class HypArea(QtWidgets.QWidget):
         self.center = QtCore.QPointF(self.width() / 2, self.height() / 2)
         self.radius = min(self.width(), self.height()) / 2 * 0.98
 
-    def _circle_painter(self):
-        painter = QtGui.QPainter(self)
-        painter.translate(self.center)
-        painter.scale(self.radius, self.radius)
-
-        return painter
-
     def _drawPoint(self, painter, point):
+        # отрисовка точки
         z = self.transform(point).toModel(self.model).z
         painter.drawEllipse(QtCore.QPointF(z.real, z.imag), 0.015, 0.015)
 
     def _drawLine(self, painter, line):
+        # отрисовка прямой
         pp, qq = line.idealPoints()
         zp, zq = self.transform(pp).z, self.transform(qq).z
 
-        z = (zp + zq) / 2
         if self.model == HypModel.BeltramiKlein:
+            # в модели БК -- это просто отрезок между двумя идеальными точками
             painter.drawLine(QtCore.QPointF(zp.real, zp.imag), QtCore.QPointF(zq.real, zq.imag))
         elif self.model == HypModel.Poincare:
+            # В модели Пуанкаре -- это окружность, местами плавно переходящая в прямую.
+            # Поэтому для плавности вырождения окружности больших радиусов отрисовываем
+            # с помощью кривых Безье.
+            z = (zp + zq) / 2
             if abs(z) > 0.1:
+                # центр окружности -- это инверсия от середины отрезка pq
                 z = z / abs(z) ** 2
 
+                # радиус окружности
                 r = (abs(z) ** 2 - 1) ** 0.5
+                # рисовать дугу от p к q или от q к p?
+                # здесь следует помнить, что плоскость на отрисовке зазеркалена.
                 if cmath.phase((zq - z) / (zp - z)) > 0:
                     zp, zq = zq, zp
 
                 start = cmath.phase(zp - z)
                 span = cmath.phase((zq - z) / (zp - z))
 
-                m = 2880 / cmath.pi
+                m = 2880 / cmath.pi  # множитель для qt недоградусов
                 painter.drawArc(QtCore.QRectF(z.real - r, z.imag - r, 2 * r, 2 * r), -start * m, -span * m)
             else:
                 path = QtGui.QPainterPath()
@@ -401,6 +413,7 @@ class HypArea(QtWidgets.QWidget):
             raise ValueError('unknown model {}'.format(self.model))
 
     def paintEvent(self, event):
+        # кисти и карандаши для рисования
         redpen = QtGui.QPen(QtCore.Qt.red, 0)
         blackpen = QtGui.QPen(QtCore.Qt.black, 0)
         nopen = QtCore.Qt.NoPen
@@ -408,7 +421,10 @@ class HypArea(QtWidgets.QWidget):
         blackbrush = QtGui.QBrush(QtCore.Qt.black)
         nobrush = QtCore.Qt.NoBrush
 
-        painter = self._circle_painter()
+        # установка координат и отрисовка абсолюта
+        painter = QtGui.QPainter(self)
+        painter.translate(self.center)
+        painter.scale(self.radius, self.radius)
         painter.setPen(blackpen)
         painter.drawEllipse(QtCore.QRectF(-1, -1, 2, 2))
 
@@ -442,6 +458,8 @@ class HypArea(QtWidgets.QWidget):
         return x + 1j * y
 
     def mouseDoubleClickEvent(self, event):
+        # двойным кликом -- добавить точку на плоскость.
+        # если кликнули по плоскости, конечно.
         z = self._event_coords(event)
         if abs(z) >= 1:
             return
@@ -451,6 +469,7 @@ class HypArea(QtWidgets.QWidget):
         self.addPoints.emit([w])
 
     def mousePressEvent(self, event):
+        # фиксируем точку, которую ухватил пользователь
         z = self._event_coords(event)
         if abs(z) >= 1:
             return
@@ -458,13 +477,13 @@ class HypArea(QtWidgets.QWidget):
         self.grabPoint = HypPoint(z, self.model)
 
     def mouseMoveEvent(self, event):
+        # если пользователь тащит плоскость, её надо трансформировать.
         w = self._event_coords(event)
         if abs(w) >= 1 or (not self.grabPoint.isValid()):
             return
 
         p = self.grabPoint
         q = HypPoint(w, self.model)
-
         self.transform = HypTransform.pToQ(p, q) * self.transform
         self.grabPoint = q
         self.repaint()

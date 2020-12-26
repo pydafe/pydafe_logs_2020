@@ -1,34 +1,49 @@
 from PySide2 import QtCore, QtWidgets, QtGui
 import sys
 from dataclasses import dataclass
+from enum import Enum
 import cmath
+
+
+class HypModel(Enum):
+     BeltramiKlein = 0
+     Poincare = 1
 
 
 @dataclass(frozen=True)
 class HypPoint:
-    x: float
-    y: float
+    """
+    Класс для точек плоскости Лобачевского. Координаты точек заданы в модели Бельтрами-Клейна.
+    """
+    z: complex
+    m: HypModel = HypModel.BeltramiKlein
 
     def isValid(self):
-        return self.y ** 2 + self.x ** 2 < 1.0
+        """
+        Лежит ли точка в плоскости Лобачевского?
+
+        Returns
+        -------
+        bool
+          Если лежит, то True.
+        """
+        return abs(self.z) < 1.0
 
     def __str__(self):
-        return 'x={:.06f}, y={:.06f}'.format(self.x, self.y)
+        bk = self if self.m == HypModel.BeltramiKlein else self.toModel(HypModel.BeltramiKlein)
+        return 'x={:.06f}, y={:.06f}'.format(bk.z.real, bk.z.imag)
 
-    def toComplex(self):
-        return self.x + 1j * self.y
-
-    @staticmethod
-    def fromComplex(z):
-        return HypPoint(z.real, z.imag)
-
-    def toPoincare(self):
-        z = self.toComplex()
-        return z / (1 + (1 - abs(z) ** 2) ** 0.5)
-
-    @staticmethod
-    def fromPoincare(z):
-        return HypPoint.fromComplex(2 * z / (1 + abs(z) ** 2))
+    def toModel(self, m):
+        if self.m == m:
+            return self
+        elif self.m == HypModel.BeltramiKlein and m == HypModel.Poincare:
+            return HypPoint(self.z / (1 + (1 - abs(self.z) ** 2) ** 0.5), m)
+        elif self.m == HypModel.Poincare and m == HypModel.BeltramiKlein:
+            return HypPoint(2 * self.z / (1 + abs(self.z) ** 2), m)
+        else:
+            print(self.m)
+            print(m)
+            raise ValueError('unknown hyperbolic model {}'.format(m))
 
 
 @dataclass(unsafe_hash=True, init=False)
@@ -42,45 +57,32 @@ class HypLine:
         self.a, self.b, self.c = a / n, b / n, c / n
 
     def isValid(self):
-        return self.c ** 2 < self.a ** 2 + self.b ** 2
+        return abs(self.c) < 1
 
-    def idealPoints(self):
+    def idealPoints(self, m=HypModel.BeltramiKlein):
         a, b, c = self.a, self.b, self.c
         nc = (1 - c ** 2) ** 0.5
-        p = HypPoint(-a * c - b * nc, -b * c + a * nc)
-        q = HypPoint(-a * c + b * nc, -b * c - a * nc)
+        p = HypPoint(complex(-a * c - b * nc, -b * c + a * nc), m)
+        q = HypPoint(complex(-a * c + b * nc, -b * c - a * nc), m)
         return p, q
 
     def pole(self):
         p, q = self.idealPoints()
-        return intersectLines(HypLine(p.x, p.y, -1), HypLine(q.x, q.y, -1))
+        return intersectLines(HypLine(p.z.real, p.z.imag, -1), HypLine(q.z.real, q.z.imag, -1))
 
     def __str__(self):
         return '{:.06f} x + {:.06f} y + {:.06f} = 0'.format(self.a, self.b, self.c)
 
-    def toComplex(self):
-        return (self.a + 1j * self.b) * (-self.c)
-
-    @staticmethod
-    def fromComplex(z):
-        return HypLine(z.real, z.imag, -(abs(z) ** 2))
-
-    def toPoincare(self):
-        z = self.toComplex()
-        return z / abs(z) ** 2
-
-    @staticmethod
-    def fromPoincare(z):
-        return HypLine.fromComplex(z / (abs(z) ** 2))
-
 
 def drawLineThroughPoints(p, q):
-    return HypLine(p.y - q.y, q.x - p.x, p.x * q.y - p.y * q.x)
+    p = p.toModel(HypModel.BeltramiKlein).z
+    q = q.toModel(HypModel.BeltramiKlein).z
+    return HypLine(p.imag - q.imag, q.real - p.real, p.real * q.imag - p.imag * q.real)
 
 
 def intersectLines(l1, l2):
     d = l1.a * l2.b - l1.b * l2.a
-    return HypPoint((l1.b * l2.c - l2.b * l1.c) / d, (l2.a * l1.c - l1.a * l2.c) / d)
+    return HypPoint(complex((l1.b * l2.c - l2.b * l1.c) / d, (l2.a * l1.c - l1.a * l2.c) / d))
 
 
 def drawPerpendicular(line, p):
@@ -111,13 +113,17 @@ class HypTransform:
     def identity():
         return HypTransform(1 + 0j, 0j)
 
-    def __call__(self, z):
+    def __call__(self, point):
+        z = point.toModel(HypModel.Poincare).z
         a = self.a
         b = self.b
-        return (a * z + b) / (b.conjugate() * z + a.conjugate())
+        w = (a * z + b) / (b.conjugate() * z + a.conjugate())
+        return HypPoint(w, HypModel.Poincare)
 
     @staticmethod
     def pToQ(p, q):
+        p = p.toModel(HypModel.Poincare).z
+        q = q.toModel(HypModel.Poincare).z
         p2 = abs(p) ** 2
         q2 = abs(q) ** 2
         return HypTransform(1 - 2 * p.conjugate() * q + p2 * q2, (1 + p2) * q - (1 + q2) * p)
@@ -165,8 +171,8 @@ class HypArea(QtWidgets.QWidget):
         self.radius = 1
         self.objects = []
         self.selected = []
-        self.conformal = False
-        self.grabPoint = 0j
+        self.model = HypModel.BeltramiKlein
+        self.grabPoint = HypPoint(0)
         self.transform = HypTransform.identity()  # Преобразование перед отрисовкой, в координатах Пуанкаре
 
     def minimumSizeHint(self):
@@ -184,41 +190,42 @@ class HypArea(QtWidgets.QWidget):
         return painter
 
     def _drawPoint(self, painter, point):
-        zz = self.transform(point.toPoincare())
-        z = zz if self.conformal else HypPoint.fromPoincare(zz).toComplex()
-
+        z = self.transform(point).toModel(self.model).z
         painter.drawEllipse(QtCore.QPointF(z.real, z.imag), 0.015, 0.015)
 
     def _drawLine(self, painter, line):
-        p, q = line.idealPoints()
-        p, q = self.transform(p.toComplex()), self.transform(q.toComplex())
+        pp, qq = line.idealPoints()
+        zp, zq = self.transform(pp).z, self.transform(qq).z
 
-        z = (p + q) / 2
-        if self.conformal:
+        z = (zp + zq) / 2
+        if self.model == HypModel.BeltramiKlein:
+            painter.drawLine(QtCore.QPointF(zp.real, zp.imag), QtCore.QPointF(zq.real, zq.imag))
+        elif self.model == HypModel.Poincare:
             if abs(z) > 0.1:
                 z = z / abs(z) ** 2
 
                 r = (abs(z) ** 2 - 1) ** 0.5
-                if cmath.phase((q - z) / (p - z)) > 0:
-                    p, q = q, p
+                if cmath.phase((zq - z) / (zp - z)) > 0:
+                    zp, zq = zq, zp
 
-                start = cmath.phase(p - z)
-                span = cmath.phase((q - z) / (p - z))
+                start = cmath.phase(zp - z)
+                span = cmath.phase((zq - z) / (zp - z))
 
                 m = 2880 / cmath.pi
                 painter.drawArc(QtCore.QRectF(z.real - r, z.imag - r, 2 * r, 2 * r), -start * m, -span * m)
             else:
                 path = QtGui.QPainterPath()
-                path.moveTo(p.real, p.imag)
-                path.quadTo(0, 0, q.real, q.imag)
+                path.moveTo(zp.real, zp.imag)
+                path.quadTo(0, 0, zq.real, zq.imag)
                 painter.drawPath(path)
         else:
-            painter.drawLine(QtCore.QPointF(p.real, p.imag), QtCore.QPointF(q.real, q.imag))
+            raise ValueError('unknown model {}'.format(self.model))
 
     def paintEvent(self, event):
         redpen = QtGui.QPen(QtCore.Qt.red, 0)
         blackpen = QtGui.QPen(QtCore.Qt.black, 0)
         nopen = QtCore.Qt.NoPen
+        redbrush = QtGui.QBrush(QtCore.Qt.red)
         blackbrush = QtGui.QBrush(QtCore.Qt.black)
         nobrush = QtCore.Qt.NoBrush
 
@@ -236,13 +243,14 @@ class HypArea(QtWidgets.QWidget):
                 painter.setBrush(nobrush)
                 self._drawLine(painter, obj)
 
-        painter.setPen(QtCore.Qt.NoPen)
-        painter.setBrush(QtCore.Qt.red)
         for obj in self.selected:
             if isinstance(obj, HypPoint):
+                painter.setPen(nopen)
+                painter.setBrush(redbrush)
                 self._drawPoint(painter, obj)
             elif isinstance(obj, HypLine):
                 painter.setPen(redpen)
+                painter.setBrush(nobrush)
                 self._drawLine(painter, obj)
 
         painter.end()
@@ -259,28 +267,27 @@ class HypArea(QtWidgets.QWidget):
         if abs(z) >= 1:
             return
 
-        zz = z if self.conformal else HypPoint.fromComplex(z).toPoincare()
-        w = HypPoint.fromPoincare(self.transform.inv(zz))
+        w = self.transform.inv(HypPoint(z, self.model))
 
         self.addPoints.emit([w])
 
     def mousePressEvent(self, event):
-        self.grabPoint = self._event_coords(event)
+        z = self._event_coords(event)
+        if abs(z) >= 1:
+            return
+
+        self.grabPoint = HypPoint(z, self.model)
 
     def mouseMoveEvent(self, event):
         w = self._event_coords(event)
-        if abs(w) >= 1 or abs(self.grabPoint) >= 1:
+        if abs(w) >= 1 or (not self.grabPoint.isValid()):
             return
 
-        if not self.conformal:
-            p = HypPoint.fromComplex(self.grabPoint).toPoincare()
-            q = HypPoint.fromComplex(w).toPoincare()
-        else:
-            p = self.grabPoint
-            q = w
+        p = self.grabPoint
+        q = HypPoint(w, self.model)
 
         self.transform = HypTransform.pToQ(p, q) * self.transform
-        self.grabPoint = w
+        self.grabPoint = q
         self.repaint()
 
     @QtCore.Slot(list)
@@ -290,10 +297,11 @@ class HypArea(QtWidgets.QWidget):
 
     @QtCore.Slot(str)
     def setModel(self, model):
-        if model == 'Beltrami-Klein':
-            self.conformal = False
-        elif model == 'Poincare':
-            self.conformal = True
+        d = {'Beltrami-Klein': HypModel.BeltramiKlein,
+             'Poincare': HypModel.Poincare}
+
+        if model in d:
+            self.model = d[model]
         else:
             raise ValueError('unknown model {}'.format(model))
 

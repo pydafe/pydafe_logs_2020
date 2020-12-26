@@ -209,9 +209,6 @@ class HypArea(QtWidgets.QWidget):
         else:
             painter.drawLine(QtCore.QPointF(p.real, p.imag), QtCore.QPointF(q.real, q.imag))
 
-        painter.drawEllipse(QtCore.QPointF(p.real, p.imag), 0.015, 0.015)
-        painter.drawEllipse(QtCore.QPointF(q.real, q.imag), 0.015, 0.015)
-
     def paintEvent(self, event):
         redpen = QtGui.QPen(QtCore.Qt.red, 0)
         blackpen = QtGui.QPen(QtCore.Qt.black, 0)

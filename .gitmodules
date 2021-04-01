@@ -1,0 +1,12 @@
+[submodule "p04_bride"]
+	path = p04_bride
+	url = git@github.com:pydafe/p04_bride.git
+[submodule "p03_collatz"]
+	path = p03_collatz
+	url = git@github.com:pydafe/p03_collatz.git
+[submodule "p10_hyperbolic"]
+	path = p10_hyperbolic
+	url = git@github.com:pydafe/p10_hyperbolic.git
+[submodule "p12_circuit"]
+	path = p12_circuit
+	url = git@github.com:pydafe/p12_circuit.git
